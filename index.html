@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARC Raiders Mission Companion</title>
+    <style>
+        :root {
+            /* Core Theme */
+            --bg-core: #0a0a0a;
+            --bg-secondary: #161616;
+            --bg-panel: #1f1f1f;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            
+            /* Accents */
+            --accent-orange: #ff9f1c;
+            --accent-blue: #2ec4b6;
+            --accent-hover: #333;
+            
+            /* Structural */
+            --border-radius: 12px;
+            --spacing-unit: 16px;
+            --sidebar-width: 300px;
+            --panel-width: 350px;
+            --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-core);
+            background-image: 
+                linear-gradient(rgba(255, 159, 28, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 159, 28, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center 0;
+            
+            color: var(--text-main);
+            font-family: var(--font-family);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Scanline Animation */
+        body::after {
+            content: "";
+            position: fixed;
+            top: -50%;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(to bottom, transparent, rgba(255, 159, 28, 0.1), transparent);
+            z-index: 1;
+            pointer-events: none;
+            will-change: transform;
+            animation: scanline 8s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { transform: translateY(0); top: -50%; }
+            100% { transform: translateY(150vh); top: -50%; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-core); }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--bg-secondary);
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            padding: var(--spacing-unit);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .brand {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--accent-orange);
+            margin-bottom: var(--spacing-unit);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .search-container { margin-bottom: 12px; }
+
+        .search-input {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--bg-panel);
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus { border-color: var(--accent-blue); }
+
+        .mission-list {
+            flex: 1;
+            overflow-y: auto;
+            list-style: none;
+            contain: content; 
+        }
+
+        .mission-item {
+            padding: 14px;
+            margin-bottom: 6px;
+            background-color: transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .mission-item.hidden { display: none; }
+        .mission-item:hover { background-color: var(--accent-hover); }
+        .mission-item.active {
+            background-color: #252525;
+            border-left-color: var(--accent-orange);
+        }
+
+        .mission-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 2px;
+            pointer-events: none;
+        }
+
+        .mission-meta {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            z-index: 5;
+        }
+
+        .header-bar {
+            padding: var(--spacing-unit);
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+            flex-shrink: 0;
+        }
+
+        .current-mission-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 60%;
+        }
+
+        .map-btn {
+            background-color: transparent;
+            color: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+            padding: 8px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .map-btn:hover {
+            background-color: var(--accent-blue);
+            color: var(--bg-core);
+            box-shadow: 0 0 10px rgba(46, 196, 182, 0.3);
+        }
+
+        .split-view {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: var(--spacing-unit);
+            gap: var(--spacing-unit);
+        }
+
+        /* Left Panel */
+        .left-panel {
+            width: var(--panel-width);
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-unit);
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+
+        .panel-box {
+            background-color: var(--bg-panel);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            border: 1px solid #2a2a2a;
+        }
+
+        
+        .tactical-notes {
+            flex: 1;
+            width: 100%;
+            background-color: rgba(0,0,0,0.2);
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: var(--text-main);
+            padding: 12px;
+            font-family: var(--font-family);
+            font-size: 0.9rem;
+            line-height: 1.5;
+            resize: none;
+            outline: none;
+            min-height: 200px;
+            transition: border-color 0.2s;
+        }
+        .tactical-notes:focus {
+            border-color: var(--accent-blue);
+            background-color: rgba(0,0,0,0.4);
+        }
+        .tactical-notes::placeholder {
+            color: #555;
+            font-style: italic;
+        }
+
+.panel-header {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 8px;
+        }
+
+        .reward-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #dcdcdc;
+        }
+
+        .reward-bullet {
+            color: var(--accent-orange);
+            margin-right: 10px;
+            font-size: 1.2rem;
+            line-height: 0;
+        }
+
+        .objective-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 14px;
+            cursor: pointer;
+            user-select: none;
+            padding: 8px;
+            border-radius: 6px;
+            transition: background 0.1s;
+        }
+
+        .objective-item:hover { background-color: #2a2a2a; }
+
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #555;
+            border-radius: 4px;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            margin-top: 2px;
+            pointer-events: none;
+        }
+
+        .checkbox::after {
+            content: '✓';
+            color: var(--bg-core);
+            font-weight: 900;
+            font-size: 14px;
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .objective-item.completed .checkbox {
+            background-color: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .objective-item.completed .checkbox::after {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .objective-item.completed .objective-text {
+            color: #666;
+            text-decoration: line-through;
+        }
+
+        .objective-text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            pointer-events: none;
+        }
+
+        /* Right Panel */
+        .right-panel {
+            flex: 1;
+            background-color: var(--bg-panel);
+            border-radius: var(--border-radius);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid #2a2a2a;
+            position: relative;
+        }
+
+        .tabs {
+            display: flex;
+            background-color: #1a1a1a;
+            border-bottom: 1px solid #333;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 18px;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background-color: #222;
+        }
+
+        .tab-btn.active {
+            color: var(--accent-orange);
+            border-bottom-color: var(--accent-orange);
+            background-color: rgba(255, 159, 28, 0.05);
+        }
+
+        .tab-content {
+            padding: 30px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .content-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .content-section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Content Styling */
+        h3 {
+            color: var(--accent-blue);
+            margin: 24px 0 12px 0;
+            font-size: 1.1rem;
+            border-left: 3px solid var(--accent-blue);
+            padding-left: 12px;
+        }
+
+        h3:first-child { margin-top: 0; }
+
+        p {
+            margin-bottom: 16px;
+            line-height: 1.7;
+            color: #ccc;
+            font-size: 1rem;
+        }
+
+        .phase-card {
+            background-color: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 24px;
+            border: 1px solid #333;
+        }
+
+        .phase-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .phase-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--accent-orange);
+        }
+
+        .phase-img-container {
+            margin-top: 16px;
+            background: #000;
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .phase-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 4px;
+            display: block;
+        }
+
+        .loadout-tag {
+            display: inline-flex;
+            align-items: center;
+            background-color: #2a2a2a;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            color: #e0e0e0;
+            border: 1px solid #333;
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 20px;
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            body {
+                flex-direction: column;
+                height: auto;
+                overflow: auto;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 300px;
+                border-right: none;
+                border-bottom: 1px solid #333;
+            }
+
+            .main-content {
+                height: auto;
+                min-height: 100vh;
+            }
+
+            .split-view { flex-direction: column; }
+            .left-panel, .right-panel { width: 100%; }
+            .left-panel { height: auto; max-height: 400px; }
+        }
+    
+
+            /* Mission Queue (Phase 3) */
+            .mission-queue {
+                display: flex;
+                gap: 8px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin-left: 14px;
+            }
+            .queue-slot {
+                min-width: 160px;
+                max-width: 220px;
+                height: 34px;
+                border-radius: 10px;
+                border: 1px solid rgba(255,255,255,0.10);
+                background: rgba(255,255,255,0.04);
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 10px;
+                cursor: default;
+                user-select: none;
+                transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+            }
+            .queue-slot.empty {
+                color: rgba(255,255,255,0.55);
+                font-size: 0.85rem;
+            }
+            .queue-slot.drag-over {
+                border-color: rgba(255,159,28,0.75);
+                background: rgba(255,159,28,0.10);
+                transform: translateY(-1px);
+            }
+            .queue-title {
+                overflow: hidden;
+                white-space: nowrap;
+                text-overflow: ellipsis;
+                font-size: 0.9rem;
+            }
+            .queue-actions {
+                display: flex;
+                gap: 6px;
+                align-items: center;
+                flex: 0 0 auto;
+                margin-left: 10px;
+            }
+            .queue-btn {
+                width: 22px;
+                height: 22px;
+                border-radius: 8px;
+                border: 1px solid rgba(255,255,255,0.14);
+                background: rgba(0,0,0,0.15);
+                color: rgba(255,255,255,0.85);
+                display: grid;
+                place-items: center;
+                cursor: pointer;
+                transition: background 120ms ease, border-color 120ms ease;
+            }
+            .queue-btn:hover {
+                border-color: rgba(255,255,255,0.28);
+                background: rgba(255,255,255,0.06);
+            }
+            .queue-btn.remove:hover {
+                border-color: rgba(255,60,60,0.55);
+                background: rgba(255,60,60,0.12);
+            }
+
+            @keyframes queueSlideIn {
+                from { opacity: 0; transform: translateY(-6px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .queue-slot {
+                animation: queueSlideIn 160ms ease;
+            }
+</style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <div class="brand">
+            <span>ARC</span> INTEL
+        </div>
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Filter missions..." id="searchInput">
+        </div>
+        <ul class="mission-list" id="missionList">
+            <!-- Injected via JS -->
+        </ul>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="header-bar">
+            <h1 class="current-mission-title" id="missionTitle">Mission Briefing</h1>
+            <div class="mission-queue" id="missionQueue" aria-label="Mission queue"></div>
+            <a href="https://mapgenie.io/arc-raiders" target="_blank" class="map-btn">
+                <span>Interactive Map</span>
+                <span style="font-size: 1.2em">↗</span>
+            </a>
+        </header>
+
+        <!-- Welcome State (Default) -->
+        <div id="welcomeState" class="empty-state">
+            <div class="empty-icon">📂</div>
+            <h2>Select a Mission</h2>
+            <p>Choose an operational directive from the sidebar to view details.</p>
+        </div>
+
+        <!-- Mission View -->
+        <div class="split-view" id="splitView" style="display:none;">
+            <!-- Persistent Left Panel -->
+            <div class="left-panel">
+                <!-- Objectives -->
+                <div class="panel-box">
+                    <div class="panel-header">Mission Objectives</div>
+                    <div id="objectivesContainer"></div>
+                </div>
+
+                <!-- Rewards -->
+                <div class="panel-box">
+                    <div class="panel-header">Rewards</div>
+                    <div id="rewardsContainer"></div>
+                </div>
+            
+                <!-- Tactical Notes -->
+                <div class="panel-box" style="flex: 1;">
+                    <div class="panel-header">Tactical Notes</div>
+                    <textarea id="missionNotes" class="tactical-notes" placeholder="Enter mission specific details (keys needed, safe codes, etc.)..."></textarea>
+                </div>
+</div>
+
+            <!-- Right Panel -->
+            <div class="right-panel">
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="app.switchTab('briefing')">Briefing</button>
+                    <button class="tab-btn" onclick="app.switchTab('phases')">Tactical Phases</button>
+                </div>
+
+                <div class="tab-content">
+                    <!-- Briefing Content -->
+                    <div id="briefing" class="content-section active">
+                        <h3>Operational Context</h3>
+                        <p id="missionDesc"></p>
+                        
+                        <h3>Location</h3>
+                        <p id="missionLocation"></p>
+
+                        <h3>Recommended Loadout</h3>
+                        <div id="loadoutContainer"></div>
+
+                        <!-- Map Section -->
+                        <div id="briefingMapContainer"></div>
+                    </div>
+
+                    <!-- Phases Content -->
+                    <div id="phases" class="content-section">
+                        <div id="phasesContainer"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="missionRegistry.js"></script>
+    <script src="allMissionMaps.js"></script>
+    <script>
+        /* CONFIGURATION */
+        const IMAGE_BASE_PATH = 'Maps/';
+
+        /* Mission Queue (Phase 3) */
+        const QUEUE_STORAGE_KEY = 'arcIntel_missionQueue_v1';
+        const QUEUE_MAX = 5;
+
+
+
+        /**
+         * ARC Raiders Mission Data Registry
+         */
+        // missionRegistry is loaded from missionRegistry.js
+
+        /* Runtime data validation (Phase 2) */
+        const MAP_INDEX = (() => {
+            const list = Array.isArray(ALL_MISSION_MAPS) ? ALL_MISSION_MAPS : [];
+            const set = new Set(list);
+            const lowerToCanonical = new Map(list.map(name => [String(name).toLowerCase(), name]));
+            return { set, lowerToCanonical };
+        })();
+
+        function validateMissionRegistry(registry) {
+            let fatal = 0, warnings = 0, info = 0;
+            const seen = new Set();
+
+            if (!Array.isArray(registry)) {
+                console.error('[ARC Intel] missionRegistry is not an array.');
+                return { fatal: 1, warnings: 0, info: 0 };
+            }
+
+            function checkMapRef(missionIdx, missionId, field, value) {
+                if (!value) return;
+                const names = Array.isArray(value) ? value : [value];
+                for (const nameRaw of names) {
+                    const name = String(nameRaw);
+
+                    // Disallow unsafe paths
+                    if (name.includes('..') || name.includes('\\') || name.startsWith('/') || name.startsWith('http')) {
+                        fatal++;
+                        console.error(`Mission[${missionIdx}] (${missionId}): ${field} has unsafe path: '${name}'`);
+                        continue;
+                    }
+
+                    // Warn if someone accidentally includes Maps/ prefix
+                    if (name.startsWith('Maps/')) {
+                        warnings++;
+                        console.warn(`Mission[${missionIdx}] (${missionId}): ${field} includes 'Maps/' prefix (omit it): '${name}'`);
+                    }
+
+                    const canonical = MAP_INDEX.lowerToCanonical.get(name.toLowerCase());
+                    if (!canonical) {
+                        warnings++;
+                        console.warn(`Mission[${missionIdx}] (${missionId}): ${field} not listed in All Mission Maps: '${name}'`);
+                    } else if (canonical !== name) {
+                        warnings++;
+                        console.warn(`Mission[${missionIdx}] (${missionId}): ${field} case mismatch: '${name}' -> '${canonical}'`);
+                    }
+                }
+            }
+
+            registry.forEach((m, idx) => {
+                if (!m || typeof m !== 'object') {
+                    fatal++;
+                    console.error(`Mission[${idx}]: entry is not an object.`);
+                    return;
+                }
+                if (!m.id || typeof m.id !== 'string') {
+                    fatal++;
+                    console.error(`Mission[${idx}]: missing/invalid id.`);
+                    return;
+                }
+                if (seen.has(m.id)) {
+                    fatal++;
+                    console.error(`Mission[${idx}] (${m.id}): duplicate id.`);
+                    return;
+                }
+                seen.add(m.id);
+
+                // Basic structural warnings (non-fatal)
+                if (!Array.isArray(m.objectives)) { warnings++; console.warn(`Mission[${idx}] (${m.id}): objectives is not an array.`); }
+                if (!Array.isArray(m.phases)) { warnings++; console.warn(`Mission[${idx}] (${m.id}): phases is not an array.`); }
+                if (!Array.isArray(m.rewards)) { warnings++; console.warn(`Mission[${idx}] (${m.id}): rewards is not an array.`); }
+                if (!Array.isArray(m.loadout)) { warnings++; console.warn(`Mission[${idx}] (${m.id}): loadout is not an array.`); }
+
+                // Map checks
+                checkMapRef(idx, m.id, 'briefingMap', m.briefingMap);
+                if (Array.isArray(m.phases)) {
+                    m.phases.forEach((p, pIdx) => {
+                        if (p && p.image) checkMapRef(idx, m.id, `phases[${pIdx}].image`, p.image);
+                    });
+                }
+            });
+
+            console.log(`[ARC Intel] missionRegistry validation: ${fatal} fatal, ${warnings} warnings, ${info} info`);
+            return { fatal, warnings, info };
+        }
+
+        // Run validation early (non-blocking unless fatal > 0)
+        const __validation = validateMissionRegistry(missionRegistry);
+        if (__validation.fatal > 0) {
+            console.error('[ARC Intel] Fatal missionRegistry issues detected; app initialization may be incomplete.');
+        }
+
+
+/**
+         * Application Logic
+         * Optimized for performance.
+         */
+        const app = {
+            // Tactical notes (mission-specific, stored in localStorage)
+            missionNotes: {},
+            currentMissionId: null,
+
+            queue: [],
+            init: function() {
+                this.cacheDOM();
+                this.initNotes();
+                this.bindEvents();
+                this.renderSidebar(); // Render once
+                
+                
+                this.loadQueue();
+                this.renderQueue();
+
+                if (missionRegistry.length > 0) {
+                    this.loadMission(missionRegistry[0].id);
+                }
+            },
+            initNotes: function() {
+                try {
+                    const savedNotes = localStorage.getItem('arc_mission_notes');
+                    if (savedNotes) this.missionNotes = JSON.parse(savedNotes) || {};
+                } catch (e) {
+                    console.warn('[ARC Intel] mission notes: failed to load from localStorage', e);
+                    this.missionNotes = {};
+                }
+            },
+
+
+
+            cacheDOM: function() {
+                this.dom = {
+                    sidebar: document.getElementById('missionList'),
+                    missionQueue: document.getElementById('missionQueue'),
+                    searchInput: document.getElementById('searchInput'),
+                    splitView: document.getElementById('splitView'),
+                    welcomeState: document.getElementById('welcomeState'),
+                    title: document.getElementById('missionTitle'),
+                    rewards: document.getElementById('rewardsContainer'),
+                    objectives: document.getElementById('objectivesContainer'),
+                    desc: document.getElementById('missionDesc'),
+                    location: document.getElementById('missionLocation'),
+                    loadout: document.getElementById('loadoutContainer'),
+                    briefingMap: document.getElementById('briefingMapContainer'),
+                    phases: document.getElementById('phasesContainer'),
+                    tabs: document.querySelectorAll('.tab-btn'),
+                    sections: document.querySelectorAll('.content-section'),
+                    notesArea: document.getElementById('missionNotes')
+                };
+            },
+
+            bindEvents: function() {
+                // Search: Toggle class instead of re-rendering DOM
+                this.dom.searchInput.addEventListener('input', (e) => {
+                    const term = e.target.value.toLowerCase();
+                    const items = this.dom.sidebar.getElementsByClassName('mission-item');
+                    
+                    for (let item of items) {
+                        const title = item.getAttribute('data-title');
+                        const trader = item.getAttribute('data-trader');
+                        
+                        if (title.includes(term) || trader.includes(term)) {
+                            item.classList.remove('hidden');
+                        } else {
+                            item.classList.add('hidden');
+                        }
+                    }
+                });
+
+                // Sidebar delegation
+                this.dom.sidebar.addEventListener('click', (e) => {
+                    const item = e.target.closest('.mission-item');
+                    if (item) {
+                        this.loadMission(item.getAttribute('data-id'));
+                    }
+                });
+
+                // Drag missions from sidebar into mission queue
+                this.dom.sidebar.addEventListener('dragstart', (e) => {
+                    const item = e.target.closest('.mission-item');
+                    if (!item) return;
+                    const id = item.getAttribute('data-id');
+                    if (!id) return;
+                    e.dataTransfer.setData('text/plain', id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                });
+
+                // Mission Queue interactions (drop + click)
+                if (this.dom.missionQueue) {
+                    this.dom.missionQueue.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        const slot = e.target.closest('.queue-slot');
+                        if (slot) slot.classList.add('drag-over');
+                    });
+
+                    this.dom.missionQueue.addEventListener('dragleave', (e) => {
+                        const slot = e.target.closest('.queue-slot');
+                        if (slot) slot.classList.remove('drag-over');
+                    });
+
+                    this.dom.missionQueue.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        const id = e.dataTransfer.getData('text/plain');
+                        if (!id) return;
+
+                        const slot = e.target.closest('.queue-slot');
+                        if (slot) slot.classList.remove('drag-over');
+
+                        const slotIndex = slot ? parseInt(slot.getAttribute('data-slot'), 10) : NaN;
+                        if (Number.isInteger(slotIndex)) {
+                            this.setQueueSlot(slotIndex, id);
+                        } else {
+                            this.addToQueue(id);
+                        }
+                    });
+
+                    this.dom.missionQueue.addEventListener('click', (e) => {
+                        const removeBtn = e.target.closest('.queue-btn.remove');
+                        const slot = e.target.closest('.queue-slot');
+                        if (!slot) return;
+
+                        const slotIndex = parseInt(slot.getAttribute('data-slot'), 10);
+                        if (!Number.isInteger(slotIndex)) return;
+
+                        if (removeBtn) {
+                            this.removeFromQueue(slotIndex);
+                            return;
+                        }
+
+                        const id = slot.getAttribute('data-mission-id');
+                        if (id) this.loadMission(id);
+                    });
+                }
+
+                // Tactical Notes: save per mission to localStorage
+                if (this.dom.notesArea) {
+                    this.dom.notesArea.addEventListener('input', (e) => {
+                        if (this.currentMissionId) {
+                            this.missionNotes[this.currentMissionId] = e.target.value;
+                            try {
+                                localStorage.setItem('arc_mission_notes', JSON.stringify(this.missionNotes));
+                            } catch (err) {
+                                console.warn('[ARC Intel] mission notes: failed to save to localStorage', err);
+                            }
+                        }
+                    });
+                }
+
+
+            },
+
+            renderSidebar: function() {
+                // Single render pass
+                const frag = document.createDocumentFragment();
+                
+                missionRegistry.forEach(mission => {
+                    const li = document.createElement('li');
+                    li.className = 'mission-item';
+                    li.setAttribute('draggable', 'true');
+                    li.setAttribute('data-id', mission.id);
+                    // Store search data in attributes to avoid DOM text lookups
+                    li.setAttribute('data-title', mission.title.toLowerCase());
+                    li.setAttribute('data-trader', mission.trader.toLowerCase());
+                    
+                    li.innerHTML = `
+                        <div class="mission-title">${mission.title}</div>
+                        <div class="mission-meta">${mission.trader} • ${mission.location.split('(')[0].trim()}</div>
+                    `;
+                    frag.appendChild(li);
+                });
+                
+                this.dom.sidebar.innerHTML = '';
+                this.dom.sidebar.appendChild(frag);
+            },
+
+            loadMission: function(id) {
+                const mission = missionRegistry.find(m => m.id === id);
+                if (!mission) return;
+
+
+                this.currentMissionId = id;
+                // 1. UI State Updates
+                this.dom.welcomeState.style.display = 'none';
+                this.dom.splitView.style.display = 'flex';
+                this.dom.title.textContent = mission.title;
+
+                // Sidebar active state
+                const currentActive = this.dom.sidebar.querySelector('.active');
+                if (currentActive) currentActive.classList.remove('active');
+                const newActive = this.dom.sidebar.querySelector(`[data-id="${id}"]`);
+                if (newActive) newActive.classList.add('active');
+
+                // 2. Render Panels (using fragments for perf)
+                this.dom.rewards.innerHTML = mission.rewards.map(r => 
+                    `<div class="reward-item"><span class="reward-bullet">●</span> ${r}</div>`
+                ).join('');
+
+                this.dom.objectives.innerHTML = "";
+                mission.objectives.forEach(obj => {
+                    const div = document.createElement('div');
+                    div.className = 'objective-item';
+                    div.onclick = function() { this.classList.toggle('completed'); };
+                    div.innerHTML = `
+                        <div class="checkbox"></div>
+                        <div class="objective-text">${obj}</div>
+                    `;
+                    this.dom.objectives.appendChild(div);
+                });
+
+                // 3. Render Briefing Tab
+                this.dom.desc.textContent = mission.description || "No briefing available.";
+                this.dom.location.textContent = mission.location || "Unknown";
+                
+                if (mission.loadout && mission.loadout.length) {
+                    this.dom.loadout.innerHTML = mission.loadout.map(l => `<span class="loadout-tag">${l}</span>`).join('');
+                } else {
+                    this.dom.loadout.innerHTML = '<span style="color:#666; font-size:0.9rem">No specific recommendations.</span>';
+                }
+
+                if (mission.briefingMap) {
+                    // Check if it's an array (multiple maps) or string (single map)
+                    const maps = Array.isArray(mission.briefingMap) ? mission.briefingMap : [mission.briefingMap];
+                    
+                    let mapsHtml = `<h3>Tactical Map${maps.length > 1 ? 's' : ''}</h3>`;
+                    
+                    mapsHtml += maps.map(mapFile => {
+                        const imgPath = `${IMAGE_BASE_PATH}${mapFile}`;
+                        // Add label if it's a multi-part map
+                        const label = maps.length > 1 ? `<div style="font-size: 0.8rem; color: #666; margin-top: 4px; text-transform:uppercase; letter-spacing:1px;">${mapFile.replace('.png', '').replace('.jpg', '')}</div>` : '';
+                        
+                        return `
+                        <div class="phase-img-container" style="margin-bottom: 16px;">
+                            <img src="${imgPath}" alt="Mission Map" class="phase-img" loading="lazy">
+                            ${label}
+                        </div>`;
+                    }).join('');
+
+                    this.dom.briefingMap.innerHTML = mapsHtml;
+                } else {
+                    this.dom.briefingMap.innerHTML = "";
+                }
+
+                // 4. Render Phases Tab
+                if (mission.phases && mission.phases.length) {
+                    this.dom.phases.innerHTML = mission.phases.map(phase => {
+                        // Handle Phase Image Path
+                        const phaseImgHtml = phase.image 
+                            ? `<div class="phase-img-container">
+                                 <img src="${IMAGE_BASE_PATH}${phase.image}" alt="Phase Map" class="phase-img" loading="lazy">
+                               </div>` 
+                            : '';
+                            
+                        return `
+                        <div class="phase-card">
+                            <div class="phase-header">
+                                <span class="phase-title">${phase.title}</span>
+                            </div>
+                            <p>${phase.text}</p>
+                            ${phaseImgHtml}
+                        </div>
+                    `}).join('');
+                } else {
+                    this.dom.phases.innerHTML = '<div style="padding:20px; color:#666; text-align:center">No tactical phase data available.</div>';
+                }
+
+                this.switchTab('briefing');
+                document.querySelector('.tab-content').scrollTop = 0;
+                // Tactical Notes: load saved notes for this mission
+                if (this.dom.notesArea) {
+                    this.dom.notesArea.value = this.missionNotes[id] || '';
+                }
+
+
+            },
+
+            /* Mission Queue (Phase 3) methods */
+            loadQueue: function() {
+                try {
+                    const raw = localStorage.getItem(QUEUE_STORAGE_KEY);
+                    const parsed = raw ? JSON.parse(raw) : [];
+                    if (Array.isArray(parsed)) {
+                        // Filter to valid mission IDs and clamp length
+                        const validIds = new Set(missionRegistry.map(m => m.id));
+                        this.queue = parsed.filter(id => validIds.has(id)).slice(0, QUEUE_MAX);
+                    } else {
+                        this.queue = [];
+                    }
+                } catch (_) {
+                    this.queue = [];
+                }
+            },
+
+            saveQueue: function() {
+                try {
+                    localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(this.queue.slice(0, QUEUE_MAX)));
+                } catch (_) {}
+            },
+
+            addToQueue: function(id) {
+                if (!id) return;
+                if (this.queue.includes(id)) return;
+
+                // First empty slot
+                if (this.queue.length < QUEUE_MAX) {
+                    this.queue.push(id);
+                } else {
+                    // Replace last slot if full
+                    this.queue[QUEUE_MAX - 1] = id;
+                }
+
+                this.saveQueue();
+                this.renderQueue();
+            },
+
+            setQueueSlot: function(slotIndex, id) {
+                if (!id || !Number.isInteger(slotIndex)) return;
+
+                // Remove existing occurrence
+                this.queue = this.queue.filter(existing => existing !== id);
+
+                // Ensure array length up to slotIndex
+                while (this.queue.length < QUEUE_MAX) this.queue.push(null);
+                this.queue[slotIndex] = id;
+
+                // Trim trailing nulls for storage cleanliness
+                while (this.queue.length && this.queue[this.queue.length - 1] == null) this.queue.pop();
+
+                this.saveQueue();
+                this.renderQueue();
+            },
+
+            removeFromQueue: function(slotIndex) {
+                if (!Number.isInteger(slotIndex)) return;
+
+                // Expand to max for safe splicing, then null-out
+                while (this.queue.length < QUEUE_MAX) this.queue.push(null);
+                this.queue[slotIndex] = null;
+
+                // Compact nulls while preserving order
+                this.queue = this.queue.filter(v => v != null);
+
+                this.saveQueue();
+                this.renderQueue();
+            },
+
+            renderQueue: function() {
+                if (!this.dom.missionQueue) return;
+
+                const frag = document.createDocumentFragment();
+                const byId = new Map(missionRegistry.map(m => [m.id, m]));
+
+                // Build a fixed 5-slot UI
+                const slots = new Array(QUEUE_MAX).fill(null).map((_, i) => this.queue[i] || null);
+
+                slots.forEach((id, i) => {
+                    const slot = document.createElement('div');
+                    slot.className = 'queue-slot' + (id ? '' : ' empty');
+                    slot.setAttribute('data-slot', String(i));
+                    if (id) slot.setAttribute('data-mission-id', id);
+
+                    if (!id) {
+                        slot.textContent = 'Drop mission';
+                        frag.appendChild(slot);
+                        return;
+                    }
+
+                    const mission = byId.get(id);
+                    const title = mission ? mission.title : id;
+
+                    slot.innerHTML = `
+                        <div class="queue-title" title="${title}">${title}</div>
+                        <div class="queue-actions">
+                            <button class="queue-btn remove" type="button" title="Remove">×</button>
+                        </div>
+                    `;
+                    frag.appendChild(slot);
+                });
+
+                this.dom.missionQueue.innerHTML = '';
+                this.dom.missionQueue.appendChild(frag);
+            },
+
+
+            switchTab: function(tabName) {
+                this.dom.tabs.forEach(btn => {
+                    btn.classList.toggle('active', btn.innerText.toLowerCase().includes(tabName === 'phases' ? 'tactical' : 'briefing'));
+                });
+                
+                this.dom.sections.forEach(sec => {
+                    sec.classList.toggle('active', sec.id === tabName);
+                });
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => app.init());
+    </script>
+</body>
+</html>

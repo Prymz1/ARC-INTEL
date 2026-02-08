@@ -1,0 +1,10 @@
+services:
+  arc-intel:
+    build: .
+    container_name: arc_intel_ui
+    ports:
+      - "8080:80"
+    volumes:
+      # Maps your local Maps folder to the internal Nginx root
+      - ./Maps:/usr/share/nginx/html/Maps
+    restart: unless-stopped
